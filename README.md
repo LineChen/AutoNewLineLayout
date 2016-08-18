@@ -2,6 +2,9 @@
 
 自动换行Layout
 
+- 处理了超长标签显示问题
+- 添加了控制子控件之间的横向间隙和纵向间隙
+
 
 #### 效果图
 
@@ -23,7 +26,7 @@
         android:background="#90a4ae"
         android:padding="4dp"
         app:horizonalSpace="10dp"
-        app:vertivalSpace="10dp"
+        app:vertivalSpace="@dimen/vertical_space"
         />
 
 ```
