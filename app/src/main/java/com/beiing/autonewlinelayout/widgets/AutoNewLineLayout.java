@@ -2,6 +2,7 @@ package com.beiing.autonewlinelayout.widgets;
 
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -30,7 +31,6 @@ public class AutoNewLineLayout extends ViewGroup {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-
         int widthSpecMode = MeasureSpec.getMode(widthMeasureSpec);
         int widthSpecSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSpecMode = MeasureSpec.getMode(heightMeasureSpec);
@@ -54,12 +54,11 @@ public class AutoNewLineLayout extends ViewGroup {
                 continue;
             }
 
-            measureChild(child, widthMeasureSpec, heightMeasureSpec);
+            measureChildWithMargins(child, widthMeasureSpec, 0, heightMeasureSpec, 0);
             MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();
 
             int childWidth = child.getMeasuredWidth()  + lp.leftMargin + lp.rightMargin;
             int childHeight = child.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
-
             if(rawWidth + childWidth > widthSpecSize - getPaddingLeft() - getPaddingRight()){
                 //换行
                 width = Math.max(width, rawWidth);
@@ -83,86 +82,39 @@ public class AutoNewLineLayout extends ViewGroup {
         );
     }
 
-    /**
-     * 存储所有的View
-     */
-    private List<List<View>> mAllViews = new ArrayList<>();
-
-    /**
-     * 每一行的高度
-     */
-    private List<Integer> mLineHeight = new ArrayList<>();
-
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        mAllViews.clear();
-        mLineHeight.clear();
+        int viewWidth = r - l;
+        int leftOffset = getPaddingLeft();
+        int topOffset = getPaddingTop();
+        int rowMaxHeight = 0;
+        View childView;
+        for( int w = 0, count = getChildCount(); w < count; w++ ){
+            childView = getChildAt(w);
 
-        int width = getWidth();
-        int lineWidth = 0;
-        int lineHeight = 0;
+            if(childView.getVisibility() == GONE) continue;
 
-        List<View> lineViews = new ArrayList<>();
-        int count = getChildCount();
-        for (int i = 0; i < count; i++) {
-            View child = getChildAt(i);
-            MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();
-            int childWidth = child.getMeasuredWidth();
-            int childHeight = child.getMeasuredHeight();
-
-            if(childWidth + lineWidth + lp.leftMargin + lp.rightMargin > width - getPaddingLeft() - getPaddingRight()){
-                //需要换行
-                //记录这一行的行高
-                mLineHeight.add(lineHeight);
-                //记录这一行的View
-                mAllViews.add(lineViews);
-
-                //重置行宽和行高
-                lineWidth = 0;
-                lineHeight = childHeight + lp.topMargin + lp.bottomMargin;
-
-                lineViews = new ArrayList<>();
+            MarginLayoutParams lp = (MarginLayoutParams) childView.getLayoutParams();
+            // 如果加上当前子View的宽度后超过了ViewGroup的宽度，就换行
+            int occupyWidth = lp.leftMargin + childView.getMeasuredWidth() + lp.rightMargin;
+            if(leftOffset + occupyWidth + getPaddingRight() > viewWidth){
+                leftOffset = getPaddingLeft();  // 回到最左边
+                topOffset += rowMaxHeight;  // 换行
+                rowMaxHeight = 0;
             }
 
-            lineWidth += childWidth + lp.leftMargin + lp.rightMargin;
-            lineHeight = Math.max(lineHeight, childHeight + lp.topMargin + lp.bottomMargin);
-            lineViews.add(child);
-        }
+            int left = leftOffset + lp.leftMargin;
+            int top = topOffset + lp.topMargin;
+            int right = leftOffset+ lp.leftMargin + childView.getMeasuredWidth();
+            int bottom =  topOffset + lp.topMargin + childView.getMeasuredHeight();
+            childView.layout(left, top, right, bottom);
 
-        //处理最后一行
-        mLineHeight.add(lineHeight);
-        mAllViews.add(lineViews);
+            // 横向偏移
+            leftOffset += occupyWidth;
 
-
-        //设置子View位置
-        int left = getPaddingLeft();
-        int top = getPaddingTop();
-
-        //行数
-        int lineNum = mAllViews.size();
-        for (int i = 0; i < lineNum; i++) {
-            lineViews = mAllViews.get(i);
-            lineHeight = mLineHeight.get(i);
-
-            for(int j = 0; j< lineViews.size(); j++){
-                View child = lineViews.get(j);
-                if(child.getVisibility() == GONE){
-                    continue;
-                }
-
-                MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();
-                int lc = left + lp.leftMargin;
-                int tc = top + lp.topMargin;
-                int rc = lc + child.getMeasuredWidth();
-                int bc = tc + child.getMeasuredHeight();
-
-                child.layout(lc ,tc, rc, bc);
-
-                left += child.getMeasuredWidth() + lp.leftMargin + lp.rightMargin;
-            }
-            //下一行
-            left = getPaddingLeft();
-            top += lineHeight;
+            // 试图更新本行最高View的高度
+            int occupyHeight = lp.topMargin + childView.getMeasuredHeight() + lp.bottomMargin;
+            rowMaxHeight = Math.max(rowMaxHeight, occupyHeight);
         }
     }
 
